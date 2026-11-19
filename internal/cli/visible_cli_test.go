@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/yetone/magpie/internal/agent"
@@ -34,6 +35,34 @@ func TestVisibleKeyLowered(t *testing.T) {
 	}
 	if _, ok := settings.Load().Visible["codex"]; ok {
 		t.Fatal("all took the visibility out under another key than the id lowered")
+	}
+}
+
+func TestVisibleOpenChamberUsesOpenCodeList(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
+	if err := provider.Save(provider.Provider{ID: "relay", Name: "Relay", Key: "k", Chat: "http://127.0.0.1:1/v1", Models: []string{"m1"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := visibleCmd([]string{"chamber", "relay"}); err != nil {
+		t.Fatal(err)
+	}
+	if names, _ := provider.VisibleTo("opencode"); !slices.Equal(names, []string{"relay"}) {
+		t.Errorf("OpenCode visibility is %v, want [relay]", names)
+	}
+	if err := visibleCmd([]string{"openchamber", "--only-picked"}); err != nil {
+		t.Fatal(err)
+	}
+	if picks, only := provider.PickedModels("opencode"); !only || len(picks) != 1 || !picks["relay/m1"] {
+		t.Errorf("OpenCode picks are %v, only picked = %v", picks, only)
+	}
+	if err := visibleCmd([]string{"openchamber", "all"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, narrowed := provider.VisibleTo("opencode"); narrowed {
+		t.Error("OpenCode still narrowed after showing all in OpenChamber")
+	}
+	if _, only := provider.PickedModels("opencode"); only {
+		t.Error("OpenCode still only shows picks after showing all in OpenChamber")
 	}
 }
 

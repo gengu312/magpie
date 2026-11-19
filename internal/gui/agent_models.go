@@ -218,13 +218,27 @@ func agentModelList(a *agent.Agent) []agentModelJSON {
 	listed, kept := provider.ListedFor(id)
 	off := provider.ModelOff(id)
 	vals := a.Values()
+	// Both rows edit the same list, so keep models selected in either row.
+	var peerID string
+	switch a.ID {
+	case "opencode":
+		peerID = "openchamber"
+	case "openchamber":
+		peerID = "opencode"
+	}
+	var peerVals map[string]string
+	if peerID != "" {
+		if peer, err := agent.FindIn(heldAgents(), peerID); err == nil {
+			peerVals = peer.Values()
+		}
+	}
 	out := []agentModelJSON{}
 	// the ones its visibility keeps after the rest, off, so a provider
 	// added after the agent was narrowed is still in its list to tick
 	n := len(listed)
 	for i, e := range append(listed, kept...) {
 		m := agentModelJSON{ID: e.ID, Name: e.Name, Group: e.Provider.Name, Icon: e.Provider.Icon, Context: e.Context,
-			Hidden: off(e.ID), InUse: usedBy(a, vals, e), Own: id == "codex" && provider.CodexOwn(e)}
+			Hidden: off(e.ID), InUse: usedBy(a, vals, e) || usedBy(a, peerVals, e), Own: id == "codex" && provider.CodexOwn(e)}
 		if i >= n {
 			m.Hidden, m.Kept = true, true
 		}

@@ -906,16 +906,17 @@ func wslKept(d distro) bool {
 		slices.ContainsFunc(wslAntigravityDirs, func(dir string) bool { return d.Has["dir:"+dir] })
 }
 
-// ListsFor is whose model lists an agent's are (provider.CatalogFor): its
-// own id's, or, for one in a WSL distro, its Windows twin's (claude for
-// claude@wsl:Ubuntu). A distro's agent is written magpie's models under
-// that id and sends the gateway that id's key, so the models picked for
-// its row are the ones it is shown only when kept under that id too (#927).
+// ListsFor is the id of the catalog an agent reads and asks the gateway
+// for (provider.CatalogFor). WSL agents share their Windows twins' lists
+// (#927), and OpenChamber reads OpenCode's provider and discovery plugin.
 func (a *Agent) ListsFor() string {
 	id, _, _ := strings.Cut(a.ID, "@wsl:")
 	// a named omp profile (omp#work) shares omp's lists: it is another
 	// omp, not another agent with a catalog of its own
 	id, _, _ = strings.Cut(id, "#")
+	if id == "openchamber" {
+		return "opencode"
+	}
 	return id
 }
 

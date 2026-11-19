@@ -199,6 +199,8 @@ type agentJSON struct {
 	Icon   string      `json:"icon"`
 	Path   string      `json:"path"`
 	Fields []fieldJSON `json:"fields"`
+	// ListsFor names the catalog when another agent owns its model settings.
+	ListsFor string `json:"listsFor,omitempty"`
 	// Own: the user's own settings of the agent's (agent.Field.Own,
 	// Claude Code's permission mode), apart from Fields so no picker on
 	// its row draws them: agentcompact.js folds them under Advanced
@@ -3421,6 +3423,9 @@ func state() stateJSON {
 		vals := a.Values()
 		now[a.ID] = vals
 		aj := agentJSON{ID: a.ID, Name: a.Name, Icon: a.Icon, Path: tilde(a.Path), Fields: agentFields(a, vals), Own: ownFields(a, vals)}
+		if id := a.ListsFor(); id != a.ID {
+			aj.ListsFor = id
+		}
 		aj.Models = agentModelCount(a, aj.Fields)
 		aj.Menu = a.ListsModels
 		aj.NoNames = a.NoNames
