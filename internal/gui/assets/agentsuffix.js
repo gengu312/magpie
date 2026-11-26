@@ -6,7 +6,7 @@
 const SUFFIX_NAMES = { on: "On", own: "Not on names I set", off: "Off" };
 window.agentSuffixPick = function (a) {
   // kept by the id its lists are kept by (Agent.ListsFor)
-  const id = kindOf(a).split("#")[0].toLowerCase();
+  const id = (a.listsFor || kindOf(a).split("#")[0]).toLowerCase();
   const s = state.settings || {}, own = (s.agentSuffix || {})[id] || "";
   const every = t("As in Settings · {mode}", { mode: t(SUFFIX_NAMES[suffixMode(s)]) });
   const label = t("Provider in model names");

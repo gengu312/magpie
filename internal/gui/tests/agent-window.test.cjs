@@ -18,22 +18,23 @@ const { watchSettingsReads, agentRow, openAgentSettings, pickItem } = require(".
 
 const assets = path.resolve(__dirname, "../assets");
 
-function serve(lang, posts) {
+function serve(lang, posts, primary) {
   let settings = { theme: "light", lang, tray: "panel", currency: "usd", version: "0.1.900", dir: "~/.config/magpie", gateway: "http://127.0.0.1:3425", proxyNow: "none", proxySource: "none", visionModels: [], imageGenModels: [], titleModels: [], workbuddyCheckins: [], lanURLs: [], redactWords: [], trayUsageEvery: 3, compactAt: 400000 };
   return async (route) => {
     const req = route.request(), url = new URL(req.url());
     const json = (data) => route.fulfill({ json: data });
     if (url.pathname === "/boot.js") return route.fulfill({ contentType: "text/javascript", body: `window.bootPrefs = {lang:${JSON.stringify(lang)},theme:"light",web:true};` });
     if (url.pathname === "/wails/runtime.js") return route.fulfill({ contentType: "text/javascript", body: "export const Window = {};" });
-    if (url.pathname === "/api/state") return json({ agents: [agentRow("dsh", "Dsh"), agentRow("codex", "Codex")], profiles: [], settings: { lang, theme: "light" } });
+    if (url.pathname === "/api/state") return json({ agents: [primary, agentRow("codex", "Codex")], profiles: [], settings: { lang, theme: "light" } });
     if (url.pathname === "/api/providers") return json({ providers: [], presets: [], excluded: [], gateway: { running: true, window: true } });
     if (url.pathname === "/api/groups") return json({ groups: [], models: [] });
     if (url.pathname === "/api/settings/agent-contexts") {
       const body = req.postDataJSON();
       posts.push({ path: url.pathname, body });
       const own = { ...(settings.agentContexts || {}) };
-      if (Object.keys(body.contexts).length) own[body.agent] = body.contexts;
-      else delete own[body.agent];
+      const id = body.agent === primary.id ? primary.listsFor || primary.id : body.agent;
+      if (Object.keys(body.contexts).length) own[id] = body.contexts;
+      else delete own[id];
       settings = { ...settings, agentContexts: own };
       return json(settings);
     }
@@ -61,10 +62,12 @@ const words = {
   de: { name: (a) => "Kontextfenster", own: "Je Modell sein eigenes", other: "Andere Größe…", bad: "Kontextfenster: lots ist keine Länge wie 128k oder 1m" },
 };
 for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium", "webkit"])) {
-  for (const lang of Object.keys(words)) {
+  const cases = Object.keys(words).map((lang) => ({ lang, primary: agentRow("dsh", "Dsh") }));
+  cases.push({ lang: "en", primary: { ...agentRow("openchamber", "OpenChamber"), listsFor: "opencode" } });
+  for (const { lang, primary } of cases) {
     for (const width of [900, 420]) {
       const w = words[lang];
-      test(`${engine} ${lang} ${width}px: an agent picks its own context window`, async (t) => {
+      test(`${engine} ${lang} ${width}px: ${primary.name} picks a context window`, async (t) => {
         const browser = await (engine === "webkit" ? webkit.launch() : chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || "chromium" }));
         t.after(() => browser.close());
         const page = await (await browser.newContext({ viewport: { width, height: 760 }, reducedMotion: "reduce" })).newPage();
@@ -72,13 +75,13 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         page.setDefaultNavigationTimeout(60000);
         const errors = [], posts = [];
         page.on("pageerror", (e) => errors.push(e.message));
-        await page.route("**/*", serve(lang, posts));
+        await page.route("**/*", serve(lang, posts, primary));
         await watchSettingsReads(page);
         await page.goto("http://magpie.test/?view=agents");
-        await openAgentSettings(page, "dsh");
-        const row = page.locator('.agent-window[data-agent="dsh"]');
+        await openAgentSettings(page, primary.id);
+        const row = page.locator(`.agent-window[data-agent="${primary.listsFor || primary.id}"]`);
         await row.waitFor();
-        assert.equal(await row.locator(".name").textContent(), w.name("Dsh"));
+        assert.equal(await row.locator(".name").textContent(), w.name(primary.name));
         assert.equal(await row.locator("select").count(), 0, "no native select");
         // picked, never typed as a syntax (the owner, 11-12)
         assert.equal(await row.locator("input").count(), 0, "no field to type a syntax into");
@@ -90,7 +93,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         const sent = async (n, body) => {
           for (let i = 0; i < 200 && posts.length < n; i++) await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
           assert.equal(posts.length, n, "posts: " + JSON.stringify(posts));
-          assert.deepEqual(posts.at(-1), { path: "/api/settings/agent-contexts", body: { agent: "dsh", contexts: body } });
+          assert.deepEqual(posts.at(-1), { path: "/api/settings/agent-contexts", body: { agent: primary.id, contexts: body } });
         };
         // one size for all its models, from the menu
         await all.click();

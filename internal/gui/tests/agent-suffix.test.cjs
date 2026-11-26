@@ -38,7 +38,7 @@ async function openPage(t, engine, lang, width) {
   page.on("pageerror", (e) => errors.push(e.message));
   // every agent's is Off; OpenCode has none of its own yet
   const cur = { lang, theme: "light", plainNames: true, agentSuffix: {} };
-  const agents = [withModels(agentRow("opencode", "OpenCode")), withModels({ ...agentRow("goose", "Goose"), noNames: true })];
+  const agents = [withModels(agentRow("opencode", "OpenCode")), withModels({ ...agentRow("openchamber", "OpenChamber"), listsFor: "opencode" }), withModels({ ...agentRow("goose", "Goose"), noNames: true })];
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url()), json = (data) => route.fulfill({ json: data });
     if (url.pathname === "/boot.js") return route.fulfill({ contentType: "text/javascript", body: `window.bootPrefs={lang:${JSON.stringify(lang)},theme:"light",web:false};` });
@@ -49,7 +49,8 @@ async function openPage(t, engine, lang, width) {
       const body = route.request().postDataJSON();
       posts.push(body);
       const own = { ...cur.agentSuffix };
-      if (body.mode) own[body.agent] = body.mode; else delete own[body.agent];
+      const id = agents.find((a) => a.id === body.agent)?.listsFor || body.agent;
+      if (body.mode) own[id] = body.mode; else delete own[id];
       cur.agentSuffix = own;
       return json(cur);
     }
@@ -97,6 +98,18 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       assert.deepEqual(errors, []);
     });
   }
+
+  test(`${engine}: OpenChamber reads and updates the shared suffix mode`, async (t) => {
+    const { page, errors, posts } = await openPage(t, engine, "en", 1180);
+    await page.locator(row("openchamber") + " .ag-link").click();
+    await page.locator(row("openchamber") + " .ag-suffix").click();
+    await page.locator(".sess-menu .pm-item", { hasText: /^\s*On\s*$/ }).click();
+    await page.locator(row("openchamber") + ' .ag-suffix[data-mode="on"]').waitFor();
+    await page.locator(row("opencode") + " .ag-link").click();
+    await page.locator(row("opencode") + ' .ag-suffix[data-mode="on"]').waitFor();
+    assert.deepEqual(posts, [{ agent: "openchamber", mode: "on" }]);
+    assert.deepEqual(errors, []);
+  });
 
   test(`${engine}: an agent whose list takes no names of magpie's has none`, async (t) => {
     const { page, errors } = await openPage(t, engine, "en", 1180);

@@ -11,7 +11,7 @@ const WINDOW_SIZES = [128e3, 200e3, 256e3, 400e3, 512e3, 1e6];
 const windowWord = (n) => contextsText({ "*": n }).toUpperCase();
 
 window.agentWindowFill = function (list, a) {
-  const kind = kindOf(a).split("#")[0];
+  const kind = a.listsFor || kindOf(a).split("#")[0];
   const row = el("div", "row pref agent-window");
   row.dataset.agent = kind;
   const who = el("div", "who"), box = el("div", "window-own");
@@ -20,7 +20,7 @@ window.agentWindowFill = function (list, a) {
   const own = () => ({ ...(((prefs || {}).agentContexts || {})[kind] || {}) });
   const main = a.fields.find((f) => f.key === "model");
   const models = (main?.options || []).filter((o) => o.value && !o.reset && !o.run && !o.custom);
-  const save = (map) => writingPrefs(api("settings/agent-contexts", { agent: kind, contexts: map }))
+  const save = (map) => writingPrefs(api("settings/agent-contexts", { agent: a.id, contexts: map }))
     .then((ns) => { prefs = ns; renderSettings(); draw(true); status(t("Takes effect when {agent} next starts", { agent: a.name }), "ok"); }).catch(settingsErr);
 
   // a size typed when none of the menu's is it: one length, 300k or 1.5m

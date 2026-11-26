@@ -428,7 +428,7 @@ func models(args []string) error {
 		if err != nil {
 			return err
 		}
-		agentID = a.ID
+		agentID = a.ListsFor()
 		entries, hidden = provider.CatalogFor(agentID)
 	}
 	if _, only := provider.PickedModels(agentID); len(entries) == 0 && agentID != "" && only {

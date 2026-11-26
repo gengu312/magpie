@@ -95,11 +95,10 @@ func visibleCmd(args []string) error {
 	if err != nil {
 		return err
 	}
-	// VisibleTo looks the id up lowered, so the key kept here — and taken
-	// back out — is lowered alike, a WSL id's case and all
-	id := strings.ToLower(a.ID)
+	// Use the same catalog id as the agent's model list on the Agents page.
+	id := strings.ToLower(a.ListsFor())
 	if len(args) == 1 {
-		return models([]string{id})
+		return models([]string{a.ID})
 	}
 	if len(args) == 2 && (args[1] == "--provider-picks" || args[1] == "--no-provider-picks") {
 		if err := provider.SetPicksJoin(id, args[1] == "--provider-picks"); err != nil {
@@ -116,7 +115,7 @@ func visibleCmd(args []string) error {
 			return err
 		}
 		fmt.Println(green.Render("✓"), "saved")
-		return models([]string{id})
+		return models([]string{a.ID})
 	}
 	list := splitList(strings.Join(args[1:], ","))
 	if len(list) == 1 && strings.EqualFold(list[0], "all") {
@@ -149,7 +148,7 @@ func visibleCmd(args []string) error {
 		catalog.Changed() // the agents' files follow
 	}
 	fmt.Println(green.Render("✓"), "saved")
-	return models([]string{id})
+	return models([]string{a.ID})
 }
 
 func orNone(xs []string) string {
